@@ -1,0 +1,15 @@
+version: '3.1'
+
+services:
+  asset_checker:
+    restart: "no"
+    image: asset_checker:v1
+    build:
+      context: .
+    ports:
+      - 4444:4444
+    env_file:
+      - .env
+    volumes:
+      - ./resources:/app/resources
+      - ./logs:/app/logs
