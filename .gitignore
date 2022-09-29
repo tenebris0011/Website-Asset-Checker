@@ -1,0 +1,4 @@
+.vscode/
+resources/sites.txt
+resources/results.csv
+logs/asset_checker.log
