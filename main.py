@@ -3,6 +3,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
+import selenium.common.exceptions
 import requests
 import logging
 from datetime import datetime
@@ -35,7 +36,7 @@ def StartThread(site_list):
         target_attributes = os.getenv('TARGET_ATTRIBUTES').split(',')
     else:
         target_attributes = ["src", "data-lazy-src", "content", "href", "src", "srcset"]
-    cdn_url = os.getenv('CDN_URL') if os.getenv('CDN_URL') else "ihealthspot"
+    cdn_url = os.getenv('CDN_URL') if os.getenv('CDN_URL') else ""
     thread_chrome_options = Options()
     if os.getenv('DRIVER_OPTIONS'):
         for option in os.getenv('DRIVER_OPTIONS').split(','):
@@ -79,37 +80,40 @@ def StartThread(site_list):
                         logging.info(e.get_attribute(atr))
                     else:
                         logging.debug("Skipping")
-
+        
         for target in found_targets:
-            if (target_site in target or cdn_url in target) and requests.get(target).status_code in range(199, 300) and target not in checked_targets:
-                checked_targets.append(target)
-                thread_web_driver.get(target)
-                thread_elements = thread_web_driver.find_elements(By.XPATH, '//*')
-                for e in thread_elements:
-                    for atr in target_attributes:
-                        if e.get_attribute(atr):
-                            if "xmlrpc" in e.get_attribute(atr):
-                                logging.debug("Skipping xmlrpc link.")
-                            elif atr == 'srcset':
-                                srcset = e.get_attribute(atr).split(' ')
-                                for src in srcset:
-                                    if "http" in src:
-                                        found_targets.append(src)
-                                        logging.info(src)
-                            elif "http" in e.get_attribute(atr):
-                                found_targets.append(e.get_attribute(atr))
-                            elif target_site.strip() in e.get_attribute(atr):
-                                found_targets.append(e.get_attribute(atr))
-                                logging.info(e.get_attribute(atr))
-                            elif cdn_url.strip() in e.get_attribute(atr):
-                                found_targets.append(e.get_attribute(atr))
-                                logging.info(e.get_attribute(atr))
-                            else:
-                                logging.debug("Skipping")
-            else:
-                status_code = requests.get(target).status_code
-                logging.info(f"Bad link found (Status Code: {status_code}): {target}")
-                bad_targets.append([target_site, status_code, target])
+            try:
+                if requests.get(target).status_code == 200 and target not in checked_targets:
+                    checked_targets.append(target)
+                    thread_web_driver.get(target)
+                    thread_elements = thread_web_driver.find_elements(By.XPATH, '//*')
+                    for e in thread_elements:
+                        for atr in target_attributes:
+                            if e.get_attribute(atr):
+                                if "xmlrpc" in e.get_attribute(atr):
+                                    logging.debug("Skipping xmlrpc link.")
+                                elif atr == 'srcset':
+                                    srcset = e.get_attribute(atr).split(' ')
+                                    for src in srcset:
+                                        if "http" in src:
+                                            found_targets.append(src)
+                                            logging.info(src)
+                                elif "http" in e.get_attribute(atr):
+                                    found_targets.append(e.get_attribute(atr))
+                                elif target_site.strip() in e.get_attribute(atr):
+                                    found_targets.append(e.get_attribute(atr))
+                                    logging.info(e.get_attribute(atr))
+                                elif cdn_url.strip() in e.get_attribute(atr):
+                                    found_targets.append(e.get_attribute(atr))
+                                    logging.info(e.get_attribute(atr))
+                                else:
+                                    logging.debug("Skipping")
+                else:
+                    status_code = requests.get(target).status_code
+                    logging.info(f"Bad link found (Status Code: {status_code}): {target}")
+                    bad_targets.append([target_site, status_code, target])
+            except selenium.common.exceptions.InvalidSessionIdException as error:
+                logging.log(f"Error processing {target}")
         logging.info("Thread done processing")
         thread_web_driver.close()
 
