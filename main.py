@@ -36,7 +36,7 @@ def StartThread(site_list):
         target_attributes = os.getenv('TARGET_ATTRIBUTES').split(',')
     else:
         target_attributes = ["src", "data-lazy-src", "content", "href", "src", "srcset"]
-    cdn_url = os.getenv('CDN_URL') if os.getenv('CDN_URL') else ""
+    cdn_url = os.getenv('CDN_URL') if os.getenv('CDN_URL') else "ihealthspot"
     thread_chrome_options = Options()
     if os.getenv('DRIVER_OPTIONS'):
         for option in os.getenv('DRIVER_OPTIONS').split(','):
@@ -64,8 +64,10 @@ def StartThread(site_list):
         for e in element_list:
             for atr in target_attributes:
                 if e.get_attribute(atr):
-                    if "xmlrpc" in e.get_attribute(atr):
-                        logging.debug("Skipping xmlrpc link.")
+                    if e.get_attribute(atr) in found_targets:
+                        logging.debug(f"Target already found: {target}.")
+                    elif "xmlrpc" in e.get_attribute(atr):
+                        logging.debug(f"Skipping xmlrpc link: {target}.")
                     elif atr == 'srcset':
                         srcset = e.get_attribute(atr).split(' ')
                         for src in srcset:
@@ -79,19 +81,36 @@ def StartThread(site_list):
                         found_targets.append(e.get_attribute(atr))
                         logging.info(e.get_attribute(atr))
                     else:
-                        logging.debug("Skipping")
+                        logging.debug("Source invalid: {target}.")
         
         for target in found_targets:
             try:
-                if requests.get(target).status_code == 200 and target not in checked_targets:
+                for ext in [".css",".js",".png",".jpeg"]:
+                    if ext in target:
+                        checked_targets.append(target)
+                        if requests.get(target).status_code == 200:
+                            logging.debug("Valid source: {target}.")
+                        else:
+                            status_code = requests.get(target).status_code
+                            logging.info(f"Possible bad link found (Status Code: {status_code}): {target}.")
+                            bad_targets.append([target_site, status_code, target])
+                for ignore in ["googleapis", "gstatic", "googletagmanager", "linkedin", "fbcdn", "jquery", "w3"]:
+                    if ignore in target:
+                        checked_targets.append(target)
+                        logging.debug(f"Skipping ignored words found. Skipping: {target}.")
+                if target in checked_targets:
+                    logging.debug(f"Target already checked: {target}.")
+                elif requests.get(target).status_code == 200:
                     checked_targets.append(target)
                     thread_web_driver.get(target)
                     thread_elements = thread_web_driver.find_elements(By.XPATH, '//*')
                     for e in thread_elements:
                         for atr in target_attributes:
                             if e.get_attribute(atr):
-                                if "xmlrpc" in e.get_attribute(atr):
-                                    logging.debug("Skipping xmlrpc link.")
+                                if e.get_attribute(atr) in found_targets:
+                                    logging.debug(f"Target already found: {target}.")
+                                elif "xmlrpc" in e.get_attribute(atr):
+                                    logging.debug(f"Skipping xmlrpc link: {target}.")
                                 elif atr == 'srcset':
                                     srcset = e.get_attribute(atr).split(' ')
                                     for src in srcset:
@@ -107,13 +126,15 @@ def StartThread(site_list):
                                     found_targets.append(e.get_attribute(atr))
                                     logging.info(e.get_attribute(atr))
                                 else:
-                                    logging.debug("Skipping")
+                                    logging.debug("Source invalid: {target}.")
                 else:
                     status_code = requests.get(target).status_code
-                    logging.info(f"Bad link found (Status Code: {status_code}): {target}")
+                    logging.info(f"Possible bad link found (Status Code: {status_code}): {target}.")
                     bad_targets.append([target_site, status_code, target])
-            except selenium.common.exceptions.InvalidSessionIdException as error:
-                logging.log(f"Error processing {target}")
+            except selenium.common.exceptions.InvalidSessionIdException as er:
+                logging.error(f"Error processing {target} \n {er}")
+            except selenium.common.exceptions.StaleElementReferenceException as er:
+                logging.error(f"Error processing {target} \n {er}")
         logging.info("Thread done processing")
         thread_web_driver.close()
 
@@ -130,8 +151,8 @@ if __name__ == '__main__':
     with open(f"./resources/{site_file}", 'r') as f:
         sites = f.readlines()
         threads = []
-        for x in range(0, len(sites), 100):
-            thread = threading.Thread(target=StartThread, args=(sites[x:x + 100],))
+        for x in range(0, len(sites), 50):
+            thread = threading.Thread(target=StartThread, args=(sites[x:x + 50],))
             threads.append(thread)
             thread.start()
         for t in threads:
@@ -141,7 +162,8 @@ if __name__ == '__main__':
         header_row = ["Host", "Status Code", "URL"]
         write = csv.writer(f)
         write.writerow(header_row)
-        write.writerow(bad_targets)
+        for item in bad_targets:
+            write.writerow(item)
     end_time = datetime.now()
     total_time = end_time - start_time
     logging.info(f'Duration: {total_time}')
