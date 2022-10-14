@@ -1,5 +1,5 @@
 # Website Asset Checker (WordPress)
-This tool scans across all websites provided looking for anything not return a 200-299 status code that belongs to our the website itself or its CDN.
+This tool scans across all websites provided looking for anything that is on the website itself or its CDN.
 
 ## Project Setup (no docker)
 ### Setup venv
