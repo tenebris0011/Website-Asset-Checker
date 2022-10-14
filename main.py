@@ -99,7 +99,7 @@ def find_assets(website, item_count, item_type):
                             logging.debug(f"Source invalid for: {data['link']}.")
             except exceptions.StaleElementReferenceException as e:
                 logging.error(f"{data['link']}: stale element reference: element is not attached to the page document")
-                bad_targets.append([website.strip(), data['link'], "Stale Element Reference Exception", data["link"]])
+                bad_targets.append([website.strip(), data['link'], "Stale Element Reference Exception"])
     web_driver.close()
     return found_targets
 
@@ -149,7 +149,7 @@ def StartThread(site_list):
                             else:
                                 status_code = requests.get(target).status_code
                                 logging.info(f"Possible bad link found (Status Code: {status_code}): {target[1]}.")
-                                bad_targets.append([target_site.strip(), target[0], status_code, target])
+                                bad_targets.append([target_site.strip(), target[0], status_code])
             except (
                 requests.exceptions.SSLError,
                 requests.exceptions.HTTPError,
@@ -158,7 +158,7 @@ def StartThread(site_list):
                 requests.exceptions.Timeout,
                 requests.exceptions.InvalidSchema,
                 ) as errh:
-                    bad_targets.append([target_site.strip(), target[0], "Unkown Error", target])
+                    bad_targets.append([target_site.strip(), target[0], "Unkown Error"])
         logging.info("Thread done processing")
 
 """
@@ -182,7 +182,7 @@ if __name__ == '__main__':
             t.join()
 
     with open(f"./resources/{results_file}", 'w') as f:
-        header_row = ["Host", "Page", "Status Code", "URL"]
+        header_row = ["Host", "Page", "Status Code"]
         write = csv.writer(f)
         write.writerow(header_row)
         for item in bad_targets:
@@ -190,5 +190,4 @@ if __name__ == '__main__':
     end_time = datetime.now()
     total_time = end_time - start_time
     logging.info(f'Duration: {total_time}')
-    print(f'Total sites scanned: {total_scanned_sites}')
 
