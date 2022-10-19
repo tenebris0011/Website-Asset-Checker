@@ -170,7 +170,6 @@ if __name__ == '__main__':
     start_time = datetime.now()
     site_file = os.getenv('SITES_FILE') if os.getenv('SITES_FILE') else "sites.txt"
     results_file = os.getenv('RESULTS_FILE') if os.getenv('RESULTS_FILE') else "results.csv"
-    #batch_size = os.getenv('BATCH_SIZE') if os.getenv('BATCH_SIZE') else 50
     with open(f"./resources/{site_file}", 'r') as f:
         sites = f.readlines()
         threads = []
